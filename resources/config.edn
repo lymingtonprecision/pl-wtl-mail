@@ -1,0 +1,9 @@
+{:database
+ {:host "neon"
+  :sid #profile {:default "IFSL"
+                 :dev "IFST"}
+  :user #env DATABASE_USER
+  :password #env DATABASE_PASSWORD}
+ :email
+ {:host #profile {:default "smtp-relay"
+                  :dev "localhost"}}}
