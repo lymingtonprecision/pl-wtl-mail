@@ -15,6 +15,9 @@
   [r]
   (nth r (- (count r) 3)))
 
+(defn replace-nils-with-empty-strings [r]
+  (vec (map (fn [v] (if (nil? v) "" v)) r)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public
 
@@ -25,6 +28,7 @@
   (jdbc/query
     db -work-to-list-sql
     {:as-arrays? true
+     :row-fn replace-nils-with-empty-strings
      :result-set-fn #(doall (rest %))}))
 
 (defn production-line
