@@ -68,7 +68,7 @@
   ([from-addr to-addr production-lines spreadsheet period]
    {:from from-addr
     :to to-addr
-    :subject (str "Line Work To Lists for "
+    :subject (str "Production Line Work To Lists for "
                   (iso-date-range period))
     :body [{:type "text/plain"
             :content (body production-lines period)}
