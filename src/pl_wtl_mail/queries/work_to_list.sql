@@ -65,61 +65,7 @@ shop_order_current_op as (
   --
   where so.close_date is null
 ),
-op_lagged_value as (
-  select
-    soo.order_no,
-    soo.release_no,
-    soo.sequence_no,
-    soo.operation_no,
-    --
-    nvl(
-      lag(soo.op_finish_date) over (
-        partition by
-          soo.order_no,
-          soo.release_no,
-          soo.sequence_no
-        order by
-          soo.operation_no
-      ),
-      so.revised_start_date
-    ) as op_start_date,
-    --
-    nvl(
-      lag(soo.qty_complete) over (
-        partition by
-          soo.order_no,
-          soo.release_no,
-          soo.sequence_no
-        order by
-          soo.operation_no
-      ),
-      soo.revised_qty_due
-    ) as qty_available,
-    --
-    lag(soo.operation_no) over (
-      partition by
-        soo.order_no,
-        soo.release_no,
-        soo.sequence_no
-      order by
-        soo.operation_no
-    ) as prev_operation_no,
-    lag(soo.work_center_no) over (
-      partition by
-        soo.order_no,
-        soo.release_no,
-        soo.sequence_no
-      order by
-        soo.operation_no
-    ) as prev_work_center_no
-  from ifsapp.shop_ord so
-  join ifsapp.shop_order_operation soo
-    on soo.order_no = so.order_no
-    and soo.release_no = so.release_no
-    and soo.sequence_no = so.sequence_no
-  where so.close_date is null
-),
-operations_in_range as (
+ops as (
   select
     soo.order_no,
     soo.release_no,
@@ -162,60 +108,90 @@ operations_in_range as (
       when 'Released' then 'Unstarted'
       when 'Closed' then 'Closed'
       else 'Started'
-    end as status
-  from ifsapp.shop_order_operation soo
-  --
-  join date_range dr on 1=1
-  --
-  join ifsapp.shop_ord so
+    end as status,
+    -- scheduled dates
+    nvl(
+      lag(soo.op_finish_date) over (
+        partition by
+          soo.order_no,
+          soo.release_no,
+          soo.sequence_no
+        order by
+          soo.operation_no
+      ),
+      so.revised_start_date
+    ) as op_start_date,
+    soo.op_finish_date,
+    -- qtys
+    nvl(
+      lag(soo.qty_complete) over (
+        partition by
+          soo.order_no,
+          soo.release_no,
+          soo.sequence_no
+        order by
+          soo.operation_no
+      ),
+      soo.revised_qty_due
+    ) as qty_available,
+    (soo.revised_qty_due - soo.qty_complete - soo.qty_scrapped) as qty_os,
+    -- prev op details
+    lag(soo.operation_no) over (
+      partition by
+        soo.order_no,
+        soo.release_no,
+        soo.sequence_no
+      order by
+        soo.operation_no
+    ) as prev_operation_no,
+    lag(soo.work_center_no) over (
+      partition by
+        soo.order_no,
+        soo.release_no,
+        soo.sequence_no
+      order by
+        soo.operation_no
+    ) as prev_work_center_no
+  from ifsapp.shop_ord so
+  join ifsapp.shop_order_operation soo
     on soo.order_no = so.order_no
     and soo.release_no = so.release_no
     and soo.sequence_no = so.sequence_no
-  --
-  join op_lagged_value olv
-    on soo.order_no = olv.order_no
-    and soo.release_no = olv.release_no
-    and soo.sequence_no = olv.sequence_no
-    and soo.operation_no = olv.operation_no
-  --
-  where soo.oper_status_code_db <> '90'
-    and so.close_date is null
-    and soo.revised_qty_due > (soo.qty_complete + soo.qty_scrapped)
-    and (
-      -- scheduled inside date range
-      olv.op_start_date between dr.start_date and dr.finish_date
-      or soo.op_finish_date between dr.start_date and dr.finish_date
-      or dr.start_date between olv.op_start_date and soo.op_finish_date
-      or dr.finish_date between olv.op_start_date and soo.op_finish_date
-      -- overdue
-      or soo.op_finish_date < dr.start_date
-    )
+  where so.close_date is null
 ),
 operation_runs as (
   select
-    oir.order_no,
-    oir.release_no,
-    oir.sequence_no,
-    min(oir.operation_no) as first_op_no,
-    max(oir.operation_no) as last_op_no,
+    ops.order_no,
+    ops.release_no,
+    ops.sequence_no,
+    min(ops.operation_no) as first_op_no,
+    max(ops.operation_no) as last_op_no,
     rtrim(
       extract(
-        xmlagg(xmlelement("X", oir.operation_no || ',') order by oir.operation_no),
+        xmlagg(xmlelement("X", ops.operation_no || ',') order by ops.operation_no),
         '/X/text()'
       ),
       ','
     ) op_sequence,
     -- run times
-    sum(oir.mach_run_time_remaining) as mach_run_time_remaining,
-    sum(oir.labor_run_time_remaining) as labor_run_time_remaining,
-    max(oir.status) keep (dense_rank first order by oir.operation_no) as status
-  from operations_in_range oir
+    sum(ops.mach_run_time_remaining) as mach_run_time_remaining,
+    sum(ops.labor_run_time_remaining) as labor_run_time_remaining,
+    max(ops.status) keep (dense_rank first order by ops.operation_no) as status,
+    --
+    min(ops.op_start_date) keep (dense_rank first order by ops.operation_no) as op_start_date,
+    max(ops.op_finish_date) keep (dense_rank last order by ops.operation_no) as op_finish_date,
+    max(ops.qty_available) keep (dense_rank first order by ops.operation_no) as qty_available,
+    max(ops.prev_operation_no) keep (dense_rank first order by ops.operation_no) as prev_operation_no,
+    max(ops.prev_work_center_no) keep (dense_rank first order by ops.operation_no) as prev_work_center_no
+  from ops
+  where ops.status <> 'Closed'
+    and ops.qty_os > 0
   group by
-    oir.order_no,
-    oir.release_no,
-    oir.sequence_no,
-    oir.work_center_no,
-    oir.so_wc_grp
+    ops.order_no,
+    ops.release_no,
+    ops.sequence_no,
+    ops.work_center_no,
+    ops.so_wc_grp
 ),
 work_to_list as (
   select
@@ -224,14 +200,14 @@ work_to_list as (
     opr.sequence_no,
     opr.op_sequence as ops,
     -- dates
-    olv.op_start_date,
-    lop.op_finish_date,
+    opr.op_start_date,
+    opr.op_finish_date,
     -- quantities
     fop.revised_qty_due,
     fop.qty_complete,
     fop.qty_scrapped,
     (fop.revised_qty_due - fop.qty_complete - fop.qty_scrapped) as qty_remaining,
-    greatest(olv.qty_available - fop.qty_complete - fop.qty_scrapped, 0) as qty_available,
+    greatest(opr.qty_available - fop.qty_complete - fop.qty_scrapped, 0) as qty_available,
     -- run times
     opr.mach_run_time_remaining,
     opr.labor_run_time_remaining,
@@ -256,13 +232,13 @@ work_to_list as (
     bp.value_no as buffer_penetration,
     so.priority_category as dbr_zone,
     case
-      when olv.op_start_date < dr.start_date then
+      when opr.op_start_date < dr.start_date then
         'Past'
       else
         nvl(start_period.name, 'Future')
     end as to_start,
     case
-      when lop.op_finish_date < dr.start_date then
+      when opr.op_finish_date < dr.start_date then
         'Overdue'
       else
         nvl(finish_period.name, 'Future')
@@ -270,7 +246,7 @@ work_to_list as (
     case
       when opr.first_op_no = soco.operation_no then
         'Yes'
-      when (olv.qty_available - fop.qty_complete - fop.qty_scrapped) > 0 then
+      when (opr.qty_available - fop.qty_complete - fop.qty_scrapped) > 0 then
         'Partially'
       else
         ''
@@ -289,22 +265,11 @@ work_to_list as (
     and opr.release_no = fop.release_no
     and opr.sequence_no = fop.sequence_no
     and opr.first_op_no = fop.operation_no
-  join ifsapp.shop_order_operation lop
-    on opr.order_no = lop.order_no
-    and opr.release_no = lop.release_no
-    and opr.sequence_no = lop.sequence_no
-    and opr.last_op_no = lop.operation_no
   --
   join shop_order_current_op soco
     on opr.order_no = soco.order_no
     and opr.release_no = soco.release_no
     and opr.sequence_no = soco.sequence_no
-  --
-  join op_lagged_value olv
-    on fop.order_no = olv.order_no
-    and fop.release_no = olv.release_no
-    and fop.sequence_no = olv.sequence_no
-    and fop.operation_no = olv.operation_no
   --
   left outer join ifsapp.shop_order_operation pop
     on opr.order_no = pop.order_no
@@ -312,7 +277,7 @@ work_to_list as (
     and opr.sequence_no = pop.sequence_no
     and pop.operation_no = case
       when soco.operation_no = fop.operation_no then
-        olv.prev_operation_no
+        opr.prev_operation_no
       else
         soco.operation_no
     end
@@ -353,11 +318,20 @@ work_to_list as (
     and bp.attribute = 'DBR_BUFFER_PEN'
   --
   left outer join period start_period
-    on olv.op_start_date between start_period.start_date and start_period.finish_date
+    on opr.op_start_date between start_period.start_date and start_period.finish_date
   left outer join period finish_period
-    on lop.op_finish_date between finish_period.start_date and finish_period.finish_date
+    on opr.op_finish_date between finish_period.start_date and finish_period.finish_date
   --
   join date_range dr on 1=1
+  where (
+    -- scheduled inside date range
+    opr.op_start_date between dr.start_date and dr.finish_date
+    or opr.op_finish_date between dr.start_date and dr.finish_date
+    or dr.start_date between opr.op_start_date and opr.op_finish_date
+    or dr.finish_date between opr.op_start_date and opr.op_finish_date
+    -- overdue
+    or opr.op_finish_date < dr.start_date
+  )
 ),
 scored_work_to_list as (
   select
