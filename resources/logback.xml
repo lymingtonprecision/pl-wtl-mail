@@ -17,7 +17,6 @@
 
   <!-- The output file configuration for our log file -->
   <appender name="LOG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-
     <encoder>
       <pattern>%date{HH:mm:ss.SSS} %-5level %logger{25}: %msg %X thread=%thread%n</pattern>
     </encoder>
@@ -39,10 +38,9 @@
     </rollingPolicy>
   </appender>
 
-  <!-- Log all warnings (and above) to the console and the log file  -->
+  <!-- Log all warnings (and above) to the console -->
   <root level="WARN">
     <appender-ref ref="CONSOLE" />
-    <appender-ref ref="LOG_FILE" />
   </root>
 
   <!-- Log all messages, regardless of level, from the app to the log file -->
