@@ -338,7 +338,7 @@ scored_work_to_list as (
     decode(
       round(buffer_penetration, 4),
       0, 0,
-      log(abs(buffer_penetration), 10) * sign(buffer_penetration)
+      log(10, abs(buffer_penetration)) * sign(buffer_penetration)
     ) as penetration_score,
     (
       decode(available, 'Yes', 1, 'Partially', 0.5, 0)
