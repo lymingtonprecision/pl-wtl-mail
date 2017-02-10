@@ -340,46 +340,54 @@ scored_work_to_list as (
       0, 0,
       log(10, abs(buffer_penetration)) * sign(buffer_penetration)
     ) as penetration_score,
-    (
-      decode(available, 'Yes', 1, 'Partially', 0.5, 0)
-      + (case when buffer_penetration < 0 then -1 else 0 end)
+    decode(
+      dbr_zone,
+      'BLACK',  'A',
+      'RED',    'B',
+      'YELLOW', 'C',
+      'GREEN',  'D',
+      'BLUE',   'E',
+      'F'
+    ) as zone_score,
+    decode(
+      available,
+      'Yes',       'A',
+      'Partially', 'B',
+      'X'
     ) as availability_score,
     decode(
       to_start,
-      'Past', 1,
-      'Week 1', 0.66,
-      'Week 2', 0.33,
-      0
+      'Past',   'A',
+      'Week 1', 'B',
+      'Week 2', 'C',
+      'E'
     ) as start_score,
     decode(
       due,
-      'Overdue', 1,
-      'Week 1', 0.75,
-      'Week 2', 0.5,
-      'Week 3', 0.25,
-      0
+      'Overdue', 'A',
+      'Week 1',  'B',
+      'Week 2',  'C',
+      'Week 3',  'D',
+      'E'
     ) as due_score,
     case
       when to_start = 'Past' and available is null then
-        -1 - decode(due, 'Overdue', 1, 'Week 1', 0.5, 0)
+        'Y'
       else
-        1
+        ' '
     end as replan_priority,
     wtl.*
   from work_to_list wtl
 ),
 prioritised_work_to_list as (
   select
-    case
-      when available is null or buffer_penetration < 0 then
-        (start_score + due_score) * replan_priority
-      else
-        (
-          penetration_score
-          + availability_score
-          + (start_score + due_score) * 0.25
-        ) * replan_priority
-    end as priority,
+    (
+      replan_priority
+      || start_score
+      || availability_score
+      || due_score
+      || zone_score
+    ) as priority,
     wtl.*
   from scored_work_to_list wtl
 )
@@ -418,25 +426,11 @@ select
   --
   production_line_id,
   production_line,
-  dense_rank() over (
-    partition by
-      production_line
-    order by
-      priority desc,
-      op_start_date,
-      op_finish_date,
-      order_no,
-      release_no,
-      sequence_no
-  ) as seq,
-  case
-    when replan_priority < 0 then
-      'Y'
-    else
-      ''
-  end as offplan
+  priority,
+  replan_priority as offplan
 from prioritised_work_to_list wtl
 where production_line_id <> '18' -- exclude inspection, for now
 order by
   production_line,
-  seq
+  priority,
+  penetration_score desc
