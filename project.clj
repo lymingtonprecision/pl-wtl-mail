@@ -1,4 +1,4 @@
-(defproject lymingtonprecision/pl-wlt-mail "1.1.2"
+(defproject lymingtonprecision/pl-wlt-mail "1.1.3-SNAPSHOT"
   :description "LPE Production Line Work To List Mailer"
   :url "https://github.com/lymingtonprecision/pl-wtl-mail"
   :license {:name "Eclipse Public License"
