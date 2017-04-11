@@ -70,7 +70,7 @@ grant execute on ifsapp.lpe_mail_api to plwtlmailer;
 
 ## License
 
-Copyright © 2016 Lymington Precision Engineers Co. Ltd.
+Copyright © 2017 Lymington Precision Engineers Co. Ltd.
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
