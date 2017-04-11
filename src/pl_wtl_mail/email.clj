@@ -59,6 +59,13 @@
     1 (single-production-line-body (first production-lines) period)
     (multi-production-line-body production-lines period)))
 
+(defn attachment
+  [name content]
+  {:type :attachment
+   :file-name name
+   :content-type "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+   :content content})
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Address utility fns
 
@@ -78,7 +85,10 @@
                   (iso-date-range period))
     :body [{:type "text/plain"
             :content (body production-lines period)}
-           {:type :attachment
-            :file-name (str "Production Line WTL " (iso-date-range period) ".xlsx")
-            :content-type "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            :content spreadsheet}]}))
+           (attachment
+            (str "Production Line WTL " (iso-date-range period) ".xlsx")
+            spreadsheet)]}))
+
+(defn add-attachment
+  [email name content]
+  (update email :body conj (attachment name content)))
