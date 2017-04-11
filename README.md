@@ -39,6 +39,8 @@ The following command line options are supported:
 * `-p` (`--password`) database account password.
 * `--dry-run` will just print the emails to the console, without sending them.
 * `-r` (`--redirect`) an email address to deliver all generated emails to.
+* `-o` (`--overseer`) an email address to send a copy of all of the Work To Lists to
+* `--overseer-only` will skip sending the individual production line emails and just email the overseer(s)
 
 ## User Account Setup
 

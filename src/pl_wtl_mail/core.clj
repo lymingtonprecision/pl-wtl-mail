@@ -46,22 +46,47 @@
               (message-for recipient recipient-wtls msg-opts))))
          (remove nil?))))
 
+(defn overseer-message
+  [to-addr work-to-list
+   & [{:keys [from to] :or {from *default-from-addr*}}]]
+  (when (seq work-to-list)
+    (let [pl-wtls (group-by wtl/production-line work-to-list)
+          pl-wtl-xlsx (spreadsheet/write-tmp-file pl-wtls)
+          off-plan-xlsx (->> work-to-list
+                             (filter wtl/off-plan?)
+                             wtl/sort-by-op-dates
+                             spreadsheet/write-off-plan-ops-tmp-file)]
+      (-> (email/message
+           from
+           (or to to-addr)
+           (map first pl-wtls)
+           pl-wtl-xlsx)
+          (email/add-attachment
+           "Off Plan Operations.xlsx"
+           off-plan-xlsx)))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public
 
 (defn run!
-  [config & [{:keys [dry-run redirect]}]]
+  [config & [{:keys [dry-run redirect overseer-only]}]]
   (let [sys (-> (system/make-system)
                 (system/configure config)
-                system/start)]
+                system/start)
+        send! (if dry-run
+                print-message
+                (fn [msg]
+                  (do
+                   (log/info (str "emailing " (:to msg)))
+                   (send-message (:email sys) msg))))]
     (try
-      (let [dl (distribution/list (:database sys))
-            wtl (wtl/work-to-list (:database sys))]
-        (doseq [msg (messages dl wtl {:to redirect})]
-          (if dry-run
-            (print-message msg)
-            (do
-              (log/info (str "emailing " (:to msg)))
-              (send-message (:email sys) msg)))))
-      (finally
-        (system/stop sys)))))
+     (let [dl (delay (distribution/list (:database sys)))
+           wtl (wtl/work-to-list (:database sys))]
+       (when-not overseer-only
+         (doseq [msg (messages @dl wtl {:to redirect})]
+           (send! msg)))
+       (when-let [o (:overseer config)]
+         (send!
+          (overseer-message o wtl {:to redirect}))))
+     (finally
+      (system/stop sys)))))

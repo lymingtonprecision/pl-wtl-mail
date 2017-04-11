@@ -15,6 +15,10 @@
     "The IFS database user account to use"]
    ["-p" "--password PASSWORD"
     "The database password"]
+   ["-o" "--overseer EMAIL_ADDR"
+    "Sends a single spreadsheet of all the Work To Lists to this address"]
+   [nil "--overseer-only"
+    "Only sends the overseer email"]
    [nil "--dry-run"
     "Don't send emails, just print them"]
    ["-r" "--redirect EMAIL_ADDR"
@@ -64,6 +68,7 @@
     (let [config (config/from
                    [(config/default-path)
                     (:config options)
+                    {:overseer (:overseer options)}
                     {:database {:user (:user options)
                                 :password (:password options)}}])]
       (pl-wtl-mail/run! config options))))

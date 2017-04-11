@@ -18,6 +18,11 @@
 (defn replace-nils-with-empty-strings [r]
   (vec (map (fn [v] (if (nil? v) "" v)) r)))
 
+(defn off-plan?
+  "Returns true if the given query result row is flagged as being ‘off plan’."
+  [r]
+  (= "Y" (last r)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public
 
@@ -41,3 +46,15 @@
   [r]
   {:id (production-line-id r)
    :description (production-line-description r)})
+
+(defn sort-by-op-dates
+  "Sorts the given Work To List by the operation start and finish dates."
+  [wtl]
+  (sort-by
+   #(->> % (drop 2) (take 2))
+   (fn [[xs xe] [ys ye]]
+     (let [cs (compare xs ys)]
+       (if (zero? cs)
+         (compare xe ye)
+         cs)))
+   wtl))

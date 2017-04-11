@@ -65,3 +65,14 @@
     (print-setup tf)
     (.deleteOnExit tf)
     tf))
+
+(defn write-off-plan-ops-tmp-file
+  [wtl]
+  (let [tf (excel/create-temp-xlsx-file "pl-wtl-")]
+    (excel/render-to-file
+     "templates/off_plan_ops.xlsx"
+     tf
+     {"Off Plan Ops" {1 wtl}})
+    (print-setup tf)
+    (.deleteOnExit tf)
+    tf))
