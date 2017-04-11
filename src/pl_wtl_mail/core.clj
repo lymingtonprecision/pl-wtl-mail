@@ -27,18 +27,23 @@
 (defn message-for
   [recipient pl-wtls
    & [{:keys [from to] :or {from *default-from-addr*}}]]
-  (when-let [pl-wtl (seq (select-production-lines pl-wtls (:production-lines recipient)))]
+  (when (seq pl-wtls)
     (email/message
       from
       (or to (:email recipient))
-      (map first pl-wtl)
-      (spreadsheet/write-tmp-file pl-wtl))))
+      (map first pl-wtls)
+      (spreadsheet/write-tmp-file pl-wtls))))
 
 (defn messages
   [distribution-list work-to-list & [msg-opts]]
   (let [pl-wtls (group-by wtl/production-line work-to-list)]
     (->> distribution-list
-         (map (fn [r] (message-for r pl-wtls msg-opts)))
+         (map
+          (fn [recipient]
+            (when-let [recipient-wtls (select-production-lines
+                                       pl-wtls
+                                       (:production-lines recipient))]
+              (message-for recipient recipient-wtls msg-opts))))
          (remove nil?))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
