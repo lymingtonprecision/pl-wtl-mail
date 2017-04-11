@@ -60,6 +60,12 @@
     (multi-production-line-body production-lines period)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Address utility fns
+
+(defn address-list [addr]
+  (map string/trim (string/split addr #"[;,]")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public
 
 (defn message
@@ -67,7 +73,7 @@
    (message from-addr to-addr production-lines spreadsheet (this-fortnight)))
   ([from-addr to-addr production-lines spreadsheet period]
    {:from from-addr
-    :to to-addr
+    :to (address-list to-addr)
     :subject (str "Production Line Work To Lists for "
                   (iso-date-range period))
     :body [{:type "text/plain"
