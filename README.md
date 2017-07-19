@@ -63,7 +63,7 @@ grant select on ifsapp.technical_spec_alphanum to plwtlmailer;
 grant select on ifsinfo.inv_part_cust_part_no to plwtlmailer;
 -- packages
 grant execute on ifsapp.client_sys to plwtlmailer;
-grant execute on ifsapp.lpe_routed_op_util_api to plwtlmailer;
+grant execute on ifsapp.lpe_routing_util_api to plwtlmailer;
 grant execute on ifsapp.lpe_shop_ord_util_api to plwtlmailer;
 grant execute on ifsapp.lpe_mail_api to plwtlmailer;
 ```
