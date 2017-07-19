@@ -92,12 +92,12 @@ ops as (
       )
     ) so_wc_grp,
     -- run times
-    ifsapp.lpe_routed_op_util_api.batch_run_time(
+    ifsapp.lpe_routing_util_api.batch_run_time(
       soo.run_time_code_db,
       soo.mach_run_factor,
       (soo.revised_qty_due - soo.qty_complete - soo.qty_scrapped)
     ) as mach_run_time_remaining,
-    ifsapp.lpe_routed_op_util_api.batch_run_time(
+    ifsapp.lpe_routing_util_api.batch_run_time(
       soo.run_time_code_db,
       soo.labor_run_factor,
       (soo.revised_qty_due - soo.qty_complete - soo.qty_scrapped)
